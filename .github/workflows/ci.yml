@@ -18,7 +18,7 @@ jobs:
           - java: 8
             os: windows-latest
             distribution: zulu
-          - java: 11
+          - java: 25
             os: ubuntu-latest
             distribution: temurin
           - java: 17
@@ -35,6 +35,9 @@ jobs:
         cache: sbt
     - uses: sbt/setup-sbt@v1
     - shell: bash
-      run: sbt -v test scripted "++ 3.x" test scriptedTestSbt2
+      run: sbt -v test scripted
+    - shell: bash
+      if: "${{ matrix.java != '8' }}"
+      run: sbt -v "++ 3.x" test scriptedTestSbt2
     - shell: bash
       run: rm -rf "$HOME/.ivy2/local" || true
