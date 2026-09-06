@@ -102,7 +102,7 @@ class ScopedProtobufPlugin(configuration: Configuration, private[sbtprotobuf] va
       dirs.map(d => Glob(d.toPath()) / "google" / "protobuf" / "*.proto")
     },
     javaSource := { (configuration / sourceManaged).value / "compiled_protobuf" },
-    protobufExternalIncludePath := (target.value / "protobuf_external"),
+    protobufExternalIncludePath := (target.value / s"protobuf_external$configurationPostfix"),
     protobufProtoc := "protoc",
     protobufRunProtoc := {
       // keep this if-expression top-level for selective functor
@@ -219,11 +219,16 @@ class ScopedProtobufPlugin(configuration: Configuration, private[sbtprotobuf] va
 
   private[this] def unpack(deps: Seq[FileRef], extractTarget: File, log: Logger, converter: FileConverter): Seq[File] = {
     IO.createDirectory(extractTarget)
-    deps.flatMap { dep =>
+    val extractedFiles = deps.flatMap { dep =>
       val seq = IO.unzip(ProtobufPluginCompat.toFile(dep, converter), extractTarget, "*.proto").toSeq
       if (!seq.isEmpty) log.debug("Extracted " + seq.mkString("\n * ", "\n * ", ""))
       seq
     }
+    // Prune obsolete schemas only after all dependencies have been extracted successfully.
+    val currentFiles = extractedFiles.toSet
+    val obsoleteFiles = (extractTarget ** "*.proto").get().filter(f => f.isFile && !currentFiles(f))
+    IO.delete(obsoleteFiles)
+    extractedFiles
   }
 
   private[this] def sourceGeneratorTask =

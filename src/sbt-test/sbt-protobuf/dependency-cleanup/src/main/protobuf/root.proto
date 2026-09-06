@@ -1,0 +1,4 @@
+syntax = "proto3";
+package test;
+import "legacy/old.proto";
+message Root { dep.Old value = 1; }

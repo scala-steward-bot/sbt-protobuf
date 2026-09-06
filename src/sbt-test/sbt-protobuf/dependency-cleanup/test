@@ -1,0 +1,25 @@
+> initDependencies
+> checkSchemas legacy/old.proto shared.proto other.proto
+> Protobuf/protobufGenerate
+
+# Replacing a JAR removes obsolete schemas while retaining other dependencies.
+> upgradeDependency
+> checkSchemas new.proto shared.proto other.proto
+> checkUpdatedSchema
+> checkTestSchemas
+-> Protobuf/protobufGenerate
+
+> useNewSchema
+> Protobuf/protobufGenerate
+
+# Removing dependencies, including the last one, must remove their schemas.
+> removeOtherDependency
+> checkSchemas new.proto shared.proto
+> removeAllDependencies
+> checkSchemas
+> checkTestRetained
+-> Protobuf/protobufGenerate
+
+# Extraction recovers after an empty dependency set.
+> initDependencies
+> checkSchemas legacy/old.proto shared.proto other.proto
