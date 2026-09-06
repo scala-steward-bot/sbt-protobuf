@@ -1,0 +1,33 @@
+> Protobuf/protobufGenerate
+> checkRuns 1
+> checkPackage dep.v1
+
+# Unchanged contents must keep the cache, even if extraction updates timestamps.
+> Protobuf/protobufGenerate
+> touchImport
+> Protobuf/protobufGenerate
+> checkRuns 1
+
+# Imported content changes must invalidate the cache even with the same timestamp.
+> changeImport
+> Protobuf/protobufGenerate
+> checkRuns 2
+> checkPackage dep.v2
+
+> changeTransitiveImport
+> Protobuf/protobufGenerate
+> checkRuns 3
+
+# Include precedence matters even when the set of input files is unchanged.
+> set { import sbtcompat.PluginCompat._; ProtobufConfig / protobufIncludePaths := Def.uncached((ProtobufConfig / protobufIncludePaths).value.reverse) }
+> Protobuf/protobufGenerate
+> checkRuns 4
+> checkPackage dep.alternate
+
+> deleteOutputs
+> Protobuf/protobufGenerate
+> checkRuns 5
+
+# Missing imports must be reported instead of returning old generated files.
+> deleteTransitiveImport
+-> Protobuf/protobufGenerate

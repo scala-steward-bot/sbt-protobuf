@@ -1,0 +1,5 @@
+syntax = "proto3";
+package dep;
+option java_package = "dep.alternate";
+import "nested/value.proto";
+message Payload { Value value = 1; }

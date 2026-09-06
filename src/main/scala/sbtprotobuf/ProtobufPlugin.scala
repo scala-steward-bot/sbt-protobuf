@@ -228,6 +228,9 @@ class ScopedProtobufPlugin(configuration: Configuration, private[sbtprotobuf] va
 
   private[this] def sourceGeneratorTask =
     Def.task {
+      import sbt.util.CacheImplicits._
+      import sbt.util.HashFileInfo
+
       val out     = streams.value
       val schemas = protobufSources.value.toSet[File].map(_.getAbsoluteFile)
       // Include Scala binary version like "_2.11" for cross building.
@@ -236,16 +239,40 @@ class ScopedProtobufPlugin(configuration: Configuration, private[sbtprotobuf] va
       val includePaths = (ProtobufConfig / protobufIncludePaths).value
       val options = (ProtobufConfig / protobufProtocOptions).value
       val targets = (ProtobufConfig / protobufGeneratedTargets).value
-      val cachedCompile = FileFunction.cached(cacheFile, inStyle = FilesInfo.lastModified, outStyle = FilesInfo.exists) { (in: Set[File]) =>
-        compile(
-          protocCommand = runProtoc,
-          schemas = schemas,
-          includePaths = includePaths,
-          protocOptions = options,
-          generatedTargets = targets,
-          log = out.log)
+
+      // Imports, including transitive imports, affect generation without being compiled themselves.
+      val inputs = schemas ++ includePaths.flatMap(dir => (dir ** "*.proto").get())
+      val settings = Seq(
+        schemas.toSeq.map(_.getCanonicalPath).sorted,
+        includePaths.map(_.getCanonicalPath),
+        options,
+        targets.flatMap { case (dir, pattern) => Seq(dir.getCanonicalPath, pattern) },
+        Seq(
+          version.value,
+          protobufUseSystemProtoc.value.toString,
+          protobufProtoc.value,
+          protobufGrpcEnabled.value.toString,
+          protobufGrpcVersion.value,
+        ),
+      )
+      val cachedOutputs = Tracked.lastOutput(cacheFile / "outputs") { (changed: Boolean, previous: Option[Set[File]]) =>
+        previous match {
+          case Some(files) if !changed && files.forall(_.exists()) => files
+          case _ =>
+            compile(
+              protocCommand = runProtoc,
+              schemas = schemas,
+              includePaths = includePaths,
+              protocOptions = options,
+              generatedTargets = targets,
+              log = out.log)
+        }
       }
-      cachedCompile(schemas).toSeq
+      val cachedGeneration = Tracked.inputChanged(cacheFile / "inputs") {
+        (changed: Boolean, _: (Seq[Seq[String]], FilesInfo[HashFileInfo])) => cachedOutputs(changed)
+      }
+      // Hash contents so re-extracting unchanged dependencies does not force regeneration.
+      cachedGeneration((settings, FileInfo.hash(inputs))).toSeq
     }
 
   private[this] def unpackDependenciesTask = Def.task {
