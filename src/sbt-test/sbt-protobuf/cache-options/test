@@ -1,0 +1,26 @@
+> Protobuf/protobufGenerate
+> checkRuns 1
+> checkRuntime GeneratedMessageV3
+
+> set ProtobufConfig / protobufProtocOptions := Seq("--java_out=lite:" + (ProtobufConfig / javaSource).value.getCanonicalPath)
+> Protobuf/protobufGenerate
+> checkRuns 2
+> checkRuntime GeneratedMessageLite
+
+> Protobuf/protobufGenerate
+> checkRuns 2
+
+# Excluded schemas remain on the include path but must stop generating outputs.
+> set ProtobufConfig / protobufExcludeFilters += Glob((ProtobufConfig / sourceDirectory).value.toPath) / "extra.proto"
+> checkExcluded
+> checkRuns 3
+
+> set ProtobufConfig / javaSource := target.value / "moved-protobuf"
+> Protobuf/protobufGenerate
+> checkRuns 4
+> checkRuntime GeneratedMessageLite
+
+# Output globs must invalidate the cache independently of protoc options.
+> set ProtobufConfig / protobufGeneratedTargets := Seq(((ProtobufConfig / javaSource).value, "*.scala"))
+> checkEmptyTargets
+> checkRuns 5

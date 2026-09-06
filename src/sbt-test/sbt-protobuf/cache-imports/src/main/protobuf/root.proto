@@ -1,0 +1,4 @@
+syntax = "proto3";
+package test;
+import "dep.proto";
+message Root { dep.Payload payload = 1; }
